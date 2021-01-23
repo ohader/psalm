@@ -1,15 +1,18 @@
 <?php
 namespace Psalm\Tests;
 
+use PhpParser\Node\Name;
+use PhpParser\Node\Stmt\Class_;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
-use function array_values;
-use function get_class;
 use Psalm\Codebase;
 use Psalm\Context;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\PluginRegistrationSocket;
 use Psalm\Tests\Internal\Provider\ClassLikeStorageInstanceCacheProvider;
 use Psalm\Type;
+use function array_map;
+use function array_values;
+use function get_class;
 
 class CodebaseTest extends TestCase
 {
@@ -125,7 +128,11 @@ class CodebaseTest extends TestCase
         $this->addFile(
             'somefile.php',
             '<?php
-                class C {
+                namespace Psalm\CurrentTest;
+                abstract class A {}
+                interface I {}
+                class C extends A implements I
+                {
                     /** @var string */
                     private $prop = "";
 
@@ -140,9 +147,20 @@ class CodebaseTest extends TestCase
              */
             public static function afterClassLikeVisit(AfterClassLikeVisitEvent $event)
             {
+                $stmt = $event->getStmt();
                 $storage = $event->getStorage();
                 $codebase = $event->getCodebase();
-                if ($storage->name === 'C') {
+                if ($storage->name === 'Psalm\\CurrentTest\\C' && $stmt instanceof Class_) {
+                    $storage->custom_metadata['fqcn'] = (string)($stmt->namespacedName ?? $stmt->name);
+                    $storage->custom_metadata['extends'] = $stmt->extends instanceof Name
+                        ? (string)$stmt->extends->getAttribute('resolvedName')
+                        : '';
+                    $storage->custom_metadata['implements'] = array_map(
+                        function (Name $aspect): string {
+                            return (string)$aspect->getAttribute('resolvedName');
+                        },
+                        $stmt->implements
+                    );
                     $storage->custom_metadata['a'] = 'b';
                     $storage->methods['m']->custom_metadata['c'] = 'd';
                     $storage->properties['prop']->custom_metadata['e'] = 'f';
@@ -157,17 +175,21 @@ class CodebaseTest extends TestCase
 
         $this->analyzeFile('somefile.php', new Context);
 
-        $this->codebase->classlike_storage_provider->remove('C');
-        $this->codebase->exhumeClassLikeStorage('C', 'somefile.php');
+        $fixtureNamespace = 'Psalm\\CurrentTest\\';
+        $this->codebase->classlike_storage_provider->remove($fixtureNamespace . 'C');
+        $this->codebase->exhumeClassLikeStorage($fixtureNamespace . 'C', 'somefile.php');
 
-        $class_storage = $this->codebase->classlike_storage_provider->get('C');
+        $class_storage = $this->codebase->classlike_storage_provider->get($fixtureNamespace . 'C');
         $file_storage = $this->codebase->file_storage_provider->get('somefile.php');
 
-        $this->assertSame('b', $class_storage->custom_metadata['a']);
-        $this->assertSame('d', $class_storage->methods['m']->custom_metadata['c']);
-        $this->assertSame('f', $class_storage->properties['prop']->custom_metadata['e']);
-        $this->assertSame('h', $class_storage->methods['m']->params[0]->custom_metadata['g']);
-        $this->assertSame('j', $file_storage->custom_metadata['i']);
+        self::assertSame($fixtureNamespace . 'C', $class_storage->custom_metadata['fqcn']);
+        self::assertSame($fixtureNamespace . 'A', $class_storage->custom_metadata['extends']);
+        self::assertSame([$fixtureNamespace . 'I'], $class_storage->custom_metadata['implements']);
+        self::assertSame('b', $class_storage->custom_metadata['a']);
+        self::assertSame('d', $class_storage->methods['m']->custom_metadata['c']);
+        self::assertSame('f', $class_storage->properties['prop']->custom_metadata['e']);
+        self::assertSame('h', $class_storage->methods['m']->params[0]->custom_metadata['g']);
+        self::assertSame('j', $file_storage->custom_metadata['i']);
     }
 
     /**

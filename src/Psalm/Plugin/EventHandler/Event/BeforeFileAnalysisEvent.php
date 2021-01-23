@@ -28,18 +28,27 @@ class BeforeFileAnalysisEvent
     private $codebase;
 
     /**
+     * @var array<\PhpParser\Node\Stmt>|null
+     */
+    private $stmts;
+
+    /**
      * Called before a file has been checked
+     *
+     * @param array<\PhpParser\Node\Stmt>|null $stmts
      */
     public function __construct(
         StatementsSource $statements_source,
         Context $file_context,
         FileStorage $file_storage,
-        Codebase $codebase
+        Codebase $codebase,
+        array $stmts = null
     ) {
         $this->statements_source = $statements_source;
         $this->file_context = $file_context;
         $this->file_storage = $file_storage;
         $this->codebase = $codebase;
+        $this->stmts = $stmts;
     }
 
     public function getStatementsSource(): StatementsSource
@@ -60,5 +69,13 @@ class BeforeFileAnalysisEvent
     public function getCodebase(): Codebase
     {
         return $this->codebase;
+    }
+
+    /**
+     * @return array<\PhpParser\Node\Stmt>|null
+     */
+    public function getStmts(): ?array
+    {
+        return $this->stmts;
     }
 }

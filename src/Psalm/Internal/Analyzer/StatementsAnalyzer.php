@@ -41,6 +41,7 @@ use Psalm\Issue\UnrecognizedStatement;
 use Psalm\Issue\UnusedForeachValue;
 use Psalm\Issue\UnusedVariable;
 use Psalm\IssueBuffer;
+use Psalm\Plugin\EventHandler\Event\BeforeStatementAnalysisEvent;
 use Psalm\Plugin\EventHandler\Event\AfterStatementAnalysisEvent;
 use Psalm\Type;
 
@@ -333,6 +334,10 @@ class StatementsAnalyzer extends SourceAnalyzer
         Context $context,
         ?Context $global_context
     ): ?bool {
+        if (self::dispatchBeforeStatementAnalysis($stmt, $context, $statements_analyzer) === false) {
+            return false;
+        }
+
         $ignore_variable_property = false;
         $ignore_variable_method = false;
 
@@ -594,23 +599,8 @@ class StatementsAnalyzer extends SourceAnalyzer
             }
         }
 
-        $codebase = $statements_analyzer->getCodebase();
-
-        $event = new AfterStatementAnalysisEvent(
-            $stmt,
-            $context,
-            $statements_analyzer,
-            $codebase,
-            []
-        );
-
-        if ($codebase->config->eventDispatcher->dispatchAfterStatementAnalysis($event) === false) {
+        if (self::dispatchAfterStatementAnalysis($stmt, $context, $statements_analyzer) === false) {
             return false;
-        }
-
-        $file_manipulations = $event->getFileReplacements();
-        if ($file_manipulations) {
-            FileManipulationBuffer::add($statements_analyzer->getFilePath(), $file_manipulations);
         }
 
         if ($new_issues) {
@@ -649,6 +639,52 @@ class StatementsAnalyzer extends SourceAnalyzer
             }
         }
 
+        return null;
+    }
+
+    private static function dispatchAfterStatementAnalysis(PhpParser\Node\Stmt $stmt, Context $context, StatementsAnalyzer $statements_analyzer): ?bool
+    {
+        $codebase = $statements_analyzer->getCodebase();
+
+        $event = new AfterStatementAnalysisEvent(
+            $stmt,
+            $context,
+            $statements_analyzer,
+            $codebase,
+            []
+        );
+
+        if ($codebase->config->eventDispatcher->dispatchAfterStatementAnalysis($event) === false) {
+            return false;
+        }
+
+        $file_manipulations = $event->getFileReplacements();
+        if ($file_manipulations) {
+            FileManipulationBuffer::add($statements_analyzer->getFilePath(), $file_manipulations);
+        }
+        return null;
+    }
+
+    private static function dispatchBeforeStatementAnalysis(PhpParser\Node\Stmt $stmt, Context $context, StatementsAnalyzer $statements_analyzer): ?bool
+    {
+        $codebase = $statements_analyzer->getCodebase();
+
+        $event = new BeforeStatementAnalysisEvent(
+            $stmt,
+            $context,
+            $statements_analyzer,
+            $codebase,
+            []
+        );
+
+        if ($codebase->config->eventDispatcher->dispatchBeforeStatementAnalysis($event) === false) {
+            return false;
+        }
+
+        $file_manipulations = $event->getFileReplacements();
+        if ($file_manipulations) {
+            FileManipulationBuffer::add($statements_analyzer->getFilePath(), $file_manipulations);
+        }
         return null;
     }
 

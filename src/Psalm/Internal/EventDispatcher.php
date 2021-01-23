@@ -57,6 +57,13 @@ class EventDispatcher
     public $legacy_after_expression_checks = [];
 
     /**
+     * Static methods to be called before statement checks are processed
+     *
+     * @var list<class-string<EventHandler\BeforeStatementAnalysisInterface>>
+     */
+    public $before_statement_checks = [];
+
+    /**
      * Static methods to be called after statement checks have completed
      *
      * @var list<class-string<EventHandler\AfterStatementAnalysisInterface>>
@@ -187,6 +194,10 @@ class EventDispatcher
             $this->legacy_after_expression_checks[] = $class;
         } elseif (is_subclass_of($class, EventHandler\AfterExpressionAnalysisInterface::class)) {
             $this->after_expression_checks[] = $class;
+        }
+
+        if (is_subclass_of($class, EventHandler\BeforeStatementAnalysisInterface::class)) {
+            $this->before_statement_checks[] = $class;
         }
 
         if (is_subclass_of($class, Hook\AfterStatementAnalysisInterface::class)) {
@@ -348,6 +359,16 @@ class EventDispatcher
             $event->setFileReplacements($file_replacements);
         }
 
+        return null;
+    }
+
+    public function dispatchBeforeStatementAnalysis(Event\BeforeStatementAnalysisEvent $event): ?bool
+    {
+        foreach ($this->before_statement_checks as $handler) {
+            if ($handler::beforeStatementAnalysis($event) === false) {
+                return false;
+            }
+        }
         return null;
     }
 

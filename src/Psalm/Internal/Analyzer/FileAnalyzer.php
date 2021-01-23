@@ -162,7 +162,7 @@ class FileAnalyzer extends SourceAnalyzer
             return;
         }
 
-        $event = new BeforeFileAnalysisEvent($this, $this->context, $file_storage, $codebase);
+        $event = new BeforeFileAnalysisEvent($this, $this->context, $file_storage, $codebase, $stmts);
 
         $codebase->config->eventDispatcher->dispatchBeforeFileAnalysis($event);
 
@@ -338,7 +338,6 @@ class FileAnalyzer extends SourceAnalyzer
             ) {
                 return;
             }
-
 
             $class_analyzer = new ClassAnalyzer($stmt, $this, $stmt->name->name);
 

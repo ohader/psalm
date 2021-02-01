@@ -41,6 +41,7 @@ abstract class CodeIssue
     /**
      * @deprecated going to be removed in Psalm 5
      * @psalm-suppress PossiblyUnusedMethod
+     * (might be used in custom BeforeIssueAddEvent)
      */
     public function getLocation(): CodeLocation
     {

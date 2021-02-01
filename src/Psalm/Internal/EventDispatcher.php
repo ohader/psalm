@@ -118,6 +118,11 @@ class EventDispatcher
     public $legacy_after_codebase_populated = [];
 
     /**
+     * @var list<class-string<EventHandler\BeforeAddIssueInterface>>
+     */
+    private $before_add_issue = [];
+
+    /**
      * Static methods to be called after codebase has been populated
      *
      * @var list<class-string<EventHandler\AfterAnalysisInterface>>
@@ -234,6 +239,10 @@ class EventDispatcher
             $this->legacy_after_codebase_populated[] = $class;
         } elseif (is_subclass_of($class, EventHandler\AfterCodebasePopulatedInterface::class)) {
             $this->after_codebase_populated[] = $class;
+        }
+
+        if (is_subclass_of($class, EventHandler\BeforeAddIssueInterface::class)) {
+            $this->before_add_issue[] = $class;
         }
 
         if (is_subclass_of($class, Hook\AfterAnalysisInterface::class)) {
@@ -493,6 +502,17 @@ class EventDispatcher
                 $event->getCodebase()
             );
         }
+    }
+
+    public function dispatchBeforeAddIssue(Event\BeforeAddIssueEvent $event): ?bool
+    {
+        foreach ($this->before_add_issue as $handler) {
+            $result = $handler::beforeAddIssue($event);
+            if (is_bool($result)) {
+                return $result;
+            }
+        }
+        return null;
     }
 
     public function dispatchAfterAnalysis(Event\AfterAnalysisEvent $event): void

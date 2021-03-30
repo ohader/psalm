@@ -130,6 +130,22 @@ class TaintTest extends TestCase
                         public function exec(string $sql) : void {}
                     }'
             ],
+            'conditionallyTaintedInputButSafe' => [
+                '<?php
+                    class A {
+                        public function deleteUser(PDOWrapper $pdo) : void {
+                            $userId = (string) $_GET["user_id"];
+                            $pdo->delete("users", $userId, true);
+                        }
+                    }
+
+                    class PDOWrapper {
+                        /**
+                         * @psalm-taint-sink ($safe is true ? \'sql\' : null) $identifier
+                         */
+                        public function delete(string $table, string $identifier, bool $safe = false) : void {}
+                    }'
+            ],
             'taintedInputToParamButSafe' => [
                 '<?php
                     class A {
@@ -831,6 +847,23 @@ class TaintTest extends TestCase
                         }
                     }',
                 'error_message' => 'TaintedSql - src' . DIRECTORY_SEPARATOR . 'somefile.php:17:40 - Detected tainted SQL in path: $_GET -> $_GET[\'user_id\'] (src/somefile.php:4:45) -> A::getUserId (src/somefile.php:3:55) -> concat (src/somefile.php:8:36) -> A::getAppendedUserId (src/somefile.php:7:63) -> $userId (src/somefile.php:12:29) -> call to A::deleteUser (src/somefile.php:13:53) -> $userId (src/somefile.php:16:69) -> call to PDO::exec (src/somefile.php:17:40) -> PDO::exec#1',
+            ],
+            'conditionallyTaintedInput' => [
+                '<?php
+                    class A {
+                        public function deleteUser(PDOWrapper $pdo) : void {
+                            $userId = (string) $_GET["user_id"];
+                            $pdo->delete("users", $userId, true);
+                        }
+                    }
+
+                    class PDOWrapper {
+                        /**
+                         * @psalm-taint-sink ($safe is true ? \'sql\' : null) $identifier
+                         */
+                        public function delete(string $table, string $identifier, bool $safe = false) : void {}
+                    }',
+                'error_message' => 'TaintedSql',
             ],
             'taintedInputToParam' => [
                 '<?php

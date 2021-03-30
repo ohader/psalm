@@ -167,10 +167,24 @@ class FunctionLikeDocblockParser
 
         if (isset($parsed_docblock->tags['psalm-taint-sink'])) {
             foreach ($parsed_docblock->tags['psalm-taint-sink'] as $param) {
-                $param_parts = preg_split('/\s+/', trim($param));
-
-                if (count($param_parts) === 2) {
-                    $info->taint_sink_params[] = ['name' => $param_parts[1], 'taint' => $param_parts[0]];
+                // plain `$param = 'html $value';` or
+                // conditional `$param = '($other is true : 'html' : null) $value';`
+                if (!preg_match('#^(?P<taint>.+?)\h+(?P<name>\$[^\h]+)$#', trim($param), $matches)) {
+                    continue;
+                }
+                $taint = $matches['taint'];
+                $name = $matches['name'];
+                if ($taint[0] === '(') {
+                    $line_parts = CommentAnalyzer::splitDocLine($taint);
+                    $info->taint_sink_params[] = [
+                        'name' => $name,
+                        'taint' => CommentAnalyzer::sanitizeDocblockType($line_parts[0]),
+                    ];
+                } else {
+                    $info->taint_sink_params[] = [
+                        'name' => $name,
+                        'taint' => $taint,
+                    ];
                 }
             }
         }
